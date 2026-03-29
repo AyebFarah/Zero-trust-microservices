@@ -1,0 +1,27 @@
+# Ce fichier crée 4 espaces d'isolation dans Kubernetes
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: app # Namespace des microservices applicatifs
+  labels:
+    istio-injection: enabled # Active l'injection Istio automatique
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: security # Keycloak, OPA, Falco, Vault
+  labels:
+    istio-injection: enabled
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring # Prometheus, Grafana
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: agents # LSA et CCA (nos agents Python)
+  labels:
+    istio-injection: enabled
