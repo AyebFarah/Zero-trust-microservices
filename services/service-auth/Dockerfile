@@ -2,6 +2,7 @@ FROM python:3.11-slim
 
 # Répertoire de travail dans le conteneur
 WORKDIR /app
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
 # Copie les dépendances EN PREMIER (optimisation du cache)
 COPY requirements.txt .
