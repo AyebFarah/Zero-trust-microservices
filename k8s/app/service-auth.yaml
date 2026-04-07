@@ -1,0 +1,70 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: service-auth
+  namespace: app
+  labels:
+    app: service-auth
+    version: v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: service-auth
+  template:
+    metadata:
+      labels:
+        app: service-auth
+        version: v1
+    spec:
+      serviceAccountName: service-auth-sa
+      containers:
+      - name: service-auth
+        image: service-auth:1.0
+        imagePullPolicy: Never    # "Never" = utilise l'image locale, ne va pas chercher sur internet
+        ports:
+        - containerPort: 8080
+        # Liveness probe : Kubernetes redémarre le pod si /health ne répond pas
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10  # Attend 10s avant le premier check
+          periodSeconds: 30        # Vérifie toutes les 30s
+          failureThreshold: 3      # Redémarre après 3 échecs consécutifs
+        # Readiness probe : Kubernetes envoie du trafic seulement quand le pod est prêt
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"     # 100 millicores = 0.1 vCPU
+          limits:
+            memory: "256Mi"
+            cpu: "500m"     # 0.5 vCPU max
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-auth
+  namespace: app
+spec:
+  selector:
+    app: service-auth     # Ce Service route vers les pods avec ce label
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: service-auth-sa
+  namespace: app
+# Le ServiceAccount donne une identité Kubernetes au pod
+# Utilisé par Vault (Phase 3) pour authentifier le pod sans mot de passe
