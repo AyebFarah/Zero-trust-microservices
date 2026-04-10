@@ -1,0 +1,109 @@
+# ============================================
+# RÈGLE 0 : DENY-ALL par défaut
+# Tout est interdit dans le namespace app
+# sauf ce qu'on autorise explicitement ensuite
+# ============================================
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-all
+  namespace: app
+spec: {}   # Spec vide = DENY EVERYTHING
+
+# ============================================
+# RÈGLE 1 : service-orders → service-auth
+# orders doit pouvoir valider les tokens
+# ============================================
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-orders-to-auth
+  namespace: app
+spec:
+  selector:
+    matchLabels:
+      app: service-auth        # Cette règle s'applique sur service-auth
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals:
+          # Identité SPIFFE de service-orders
+          - "cluster.local/ns/app/sa/service-orders-sa"
+    to:
+    - operation:
+        methods: ["GET"]
+        paths: ["/auth/validate", "/health"]
+
+# ============================================
+# RÈGLE 2 : service-orders → service-payment
+# orders déclenche le paiement
+# ============================================
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-orders-to-payment
+  namespace: app
+spec:
+  selector:
+    matchLabels:
+      app: service-payment
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals:
+          - "cluster.local/ns/app/sa/service-orders-sa"
+    to:
+    - operation:
+        methods: ["POST", "GET"]
+        paths: ["/payment/process", "/payment/*", "/health"]
+
+# ============================================
+# RÈGLE 3 : service-payment → service-notification
+# payment envoie la confirmation
+# ============================================
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-payment-to-notification
+  namespace: app
+spec:
+  selector:
+    matchLabels:
+      app: service-notification
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals:
+          - "cluster.local/ns/app/sa/service-payment-sa"
+    to:
+    - operation:
+        methods: ["POST", "GET"]
+        paths: ["/notify/*", "/health"]
+
+# ============================================
+# RÈGLE 4 : agents LSA → tous les services
+# Les agents de sécurité peuvent lire /health
+# ============================================
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-agents-health
+  namespace: app
+spec:
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        namespaces: ["agents"]
+    to:
+    - operation:
+        methods: ["GET"]
+        paths: ["/health"]
